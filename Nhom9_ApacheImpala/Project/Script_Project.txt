@@ -1,0 +1,265 @@
+--- 4.3.1. Create Database
+create database my_db
+
+--- 4.3.2. Create Table
+** Customer
+CREATE TABLE customer (
+    CustomerKey INT,
+    Gender STRING,
+    Name STRING,
+    City STRING,
+    State_Code STRING,
+    State STRING,
+    Zip_Code INT,
+    Country STRING,
+    Continent STRING,
+    Birthday TIMESTAMP
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+** Product
+CREATE TABLE product (
+    ProductKey INT,
+    Product_Name STRING,
+    Brand STRING,
+    Color STRING,
+    Unit_Cost_USD FLOAT,
+    Unit_Price_USD FLOAT,
+    SubcategoryKey INT,
+    Subcategory STRING,
+    CategoryKey INT,
+    Category STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+** Sale
+CREATE TABLE sale (
+    Order_Number INT,
+    Line_Item INT,
+    Order_Date TIMESTAMP,
+    Delivery_Date TIMESTAMP,
+    CustomerKey INT,
+    StoreKey INT,
+    ProductKey INT,
+    Quantity INT,
+    Currency_Code STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+** Store
+CREATE TABLE store (
+    StoreKey INT,
+    Country STRING,
+    State STRING,
+    Square_Meters INT,
+    Open_Date TIMESTAMP
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+
+--- 4.3.3. Load data into table
+** customer
+LOAD DATA INPATH '/user/cloudera/Customers.csv' 
+OVERWRITE INTO TABLE customer;
+
+** product
+LOAD DATA INPATH '/user/cloudera/Products.csv' 
+OVERWRITE INTO TABLE product;
+
+** sale
+LOAD DATA INPATH '/user/cloudera/Sales.csv' 
+OVERWRITE INTO TABLE sale;
+
+** store
+LOAD DATA INPATH '/user/cloudera/Stores.csv' 
+OVERWRITE INTO TABLE store;
+
+
+--- 4.3.4. Công ty bán những loại sản phẩm nào và khách hàng ở đâu?
+SELECT
+    p.Category, 
+    p.Subcategory, 
+    c.City, 
+    c.State, 
+    c.Country,
+    COUNT(s.Order_Number) AS Total_Orders,
+    SUM(s.Quantity) AS Total_Quantity
+FROM product p
+JOIN sale s ON p.ProductKey = s.ProductKey
+JOIN customer c ON s.CustomerKey = c.CustomerKey
+GROUP BY p.Category, p.Subcategory, c.City, c.State, c.Country
+ORDER BY Total_Orders DESC;
+
+
+--- 4.3.5. Lấy thông tin về vị trí của cửa hàng và diện tích của các cửa hàng
+SELECT
+    Country,
+    State,
+    SUM(Square_Meters) AS Total_Square_Meters
+FROM Store
+GROUP BY Country, State;
+
+
+--- 4.3.6. Phân tích giá sản phẩm giúp hiểu được phạm vi giá và xác định xu hướng trên các danh mục khác nhau
+SELECT 
+    Category, 
+    AVG(Unit_Price_USD) AS Average_Price
+FROM product
+GROUP BY Category
+ORDER BY Average_Price DESC;
+
+
+--- 4.3.7. Danh sách các khách hàng đã mua ít nhất 2 sản phẩm của cùng một thương hiệu, sắp xếp theo số lượng sản phẩm mua
+SELECT c.CustomerKey, c.Name, p.Brand, COUNT(*) AS Product_Count
+FROM sale s
+JOIN product p ON s.ProductKey = p.ProductKey
+JOIN customer c ON s.CustomerKey = c.CustomerKey
+GROUP BY c.CustomerKey, c.Name, p.Brand
+HAVING COUNT(*) >= 2
+ORDER BY Product_Count DESC;
+
+
+--- 4.3.8. Xem tỉ lệ giữa khách hàng nam và nữ đặt hàng trong mỗi quốc gia
+SELECT c.Country,
+    c.Gender,
+    COUNT(*) AS Gender_Count,
+    COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY c.Country) AS Gender_Ratio
+FROM sale s
+JOIN customer c ON s.CustomerKey = c.CustomerKey
+GROUP BY c.Country, c.Gender;
+
+
+--- 4.3.9. Tính tổng khối lượng đặt hàng theo tháng và năm
+SELECT 
+    YEAR(Order_Date) AS Order_Year,
+    MONTH(Order_Date) AS Order_Month,
+    SUM(Quantity) AS Total_Quantity
+FROM sale
+GROUP BY Order_Year, Order_Month
+ORDER BY Order_Year, Order_Month;
+
+
+--- 4.3.10. Liệt kê sản phẩm bán chạy nhất trong mỗi danh mục và hiển thị số lượng bán được từ cao đến thấp
+WITH SalesSummary AS (
+    SELECT p.Category, p.Product_Name, SUM(s.Quantity) AS Total_Sold
+    FROM sale s
+    JOIN product p ON s.ProductKey = p.ProductKey
+    GROUP BY p.Category, p.Product_Name
+)
+SELECT Category, Product_Name, Total_Sold
+FROM (
+    SELECT Category, Product_Name, Total_Sold,
+           ROW_NUMBER() OVER (PARTITION BY Category ORDER BY Total_Sold DESC) AS rank
+    FROM SalesSummary
+) ranked
+WHERE rank = 1
+ORDER BY Total_Sold DESC;
+
+
+--- 4.3.11. Xem doanh số bán hàng theo từng danh mục sản phẩm trong năm 2019 với danh mục có doanh số bán hàng đáng kể (tổng số lượng sản phẩm bán ra lớn hơn 100)
+SELECT
+    YEAR(s.Order_Date) AS OrderYear,
+    p.Category AS ProductCategory,
+    SUM(s.Quantity) AS TotalQuantitySold,
+    AVG(p.Unit_Price_USD) AS AvgUnitPrice,
+    SUM(s.Quantity * p.Unit_Price_USD) AS TotalSalesRevenue
+FROM sale s
+JOIN product p ON s.ProductKey = p.ProductKey
+WHERE s.Order_Date BETWEEN '2019-01-01' AND '2019-12-31'
+GROUP BY YEAR(s.Order_Date),p.Category
+HAVING SUM(s.Quantity) > 3000
+ORDER BY TotalSalesRevenue DESC;
+
+
+--- 4.3.12. Tổng diện tích của các cửa hàng theo quốc gia và tính số lượng cửa hàng trong mỗi quốc gia, sau đó sắp xếp kết quả theo tổng diện tích giảm dần
+WITH store_summary AS (
+    SELECT 
+        Country, 
+        SUM(Square_Meters) AS Total_Square_Meters,
+        COUNT(*) AS Store_Count
+    FROM store
+    GROUP BY Country
+)
+SELECT 
+    Country,
+    Total_Square_Meters,
+    Store_Count
+FROM store_summary
+ORDER BY Total_Square_Meters DESC;
+
+
+--- 4.3.13. Thông tin về doanh số của các cửa hàng ở các nước cho một ngày cụ thể (ví dụ 1/6/2016)
+SELECT 
+    st.Country, 
+    SUM(s.Quantity * p.Unit_Price_USD) AS Total_Sales
+FROM sale s
+JOIN store st ON s.StoreKey = st.StoreKey
+JOIN product p ON s.ProductKey = p.ProductKey
+WHERE s.Order_Date >= '2016-06-01' AND s.Order_Date < '2016-06-02'
+GROUP BY st.Country
+ORDER BY Total_Sales DESC;
+
+
+--- 4.3.14. Xem danh sách các nhóm tuổi phổ biến của khách hàng mua hàng, sắp xếp theo số lượng mua hàng giảm dần
+WITH CustomerAgeGroup AS (
+    SELECT c.CustomerKey, YEAR(c.Birthday) AS BirthYear, YEAR(s.Order_Date) AS OrderYear
+    FROM sale s
+    JOIN customer c ON s.CustomerKey = c.CustomerKey
+)
+SELECT OrderYear - BirthYear AS Age,
+    CASE 
+        WHEN OrderYear - BirthYear BETWEEN 18 AND 25 THEN '18-25'
+        WHEN OrderYear - BirthYear BETWEEN 26 AND 35 THEN '26-35'
+        WHEN OrderYear - BirthYear BETWEEN 36 AND 45 THEN '36-45'
+        ELSE 'Over 45'
+    END AS AgeGroup,
+    COUNT(*) AS Customer_Count
+FROM CustomerAgeGroup
+GROUP BY AgeGroup, Age
+ORDER BY Customer_Count DESC;
+
+
+--- 4.3.15. Công ty bán những loại sản phẩm nào và thương hiệu nào phổ biến nhất?
+** Phân phối Product theo Category
+SELECT 
+    Category, 
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Category
+ORDER BY Product_Count DESC;
+
+** Phân phối Product theo Brand
+SELECT 
+    Brand, 
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Brand
+ORDER BY Product_Count DESC;
+
+** Tổng hợp
+SELECT 
+    'Category' AS Type,
+    Category AS Name,
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Category
+UNION ALL
+SELECT 
+    'Brand' AS Type,
+    Brand AS Name,
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Brand
+ORDER BY Type, Product_Count DESC;

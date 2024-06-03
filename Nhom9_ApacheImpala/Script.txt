@@ -1,0 +1,355 @@
+--- 3.1.1 Create a Database
+CREATE DATABASE IF NOT EXISTS my_database;
+
+--- 3.1.2. Drop a Database
+DROP DATABASE IF EXISTS sample_database;
+
+--- 3.1.3. Select a Database
+CREATE DATABASE IF NOT EXISTS sample_database;
+USE sample_database;
+
+--- 3.2.1. Create Table statement
+CREATE TABLE IF NOT EXISTS my_db.student
+   (name STRING, age INT, contact INT );
+
+--- 3.2.2. Insert Statement
+create table employee (Id INT, name STRING, age INT,address STRING, salary BIGINT);
+insert into employee 
+(ID,NAME,AGE,ADDRESS,SALARY)VALUES (1, 'Ramesh', 32, 'Ahmedabad', 20000 );
+insert into employee values (2, 'Khilan', 25, 'Delhi', 15000 );
+Insert into employee values (3, 'kaushik', 23, 'Kota', 30000 );
+Insert into employee values (4, 'Chaitali', 25, 'Mumbai', 35000 );
+Insert into employee values (5, 'Hardik', 27, 'Bhopal', 40000 );
+Insert into employee values (6, 'Komal', 22, 'MP', 32000 );
+
+--- 3.2.3. Select Statement
+select id, name, age from customer;
+select * from customer;
+
+--- 3.2.4. Describe Statement
+describe customer;
+
+--- 3.2.5. Alter Table
+ALTER TABLE my_db.customer RENAME TO my_db.users;
+ALTER TABLE users ADD COLUMNS (account_no BIGINT, phone_no BIGINT);
+ALTER TABLE users DROP account_no;
+ALTER TABLE users CHANGE phone_no e_mail string;
+
+--- 3.2.6. Drop a Table
+drop table student;
+
+--- 3.2.7. Truncate a Table
+truncate customers;
+
+--- 3.2.8. Show Tables
+show tables;
+
+--- 3.2.9. Create view
+CREATE VIEW IF NOT EXISTS customers_view AS select name, age from customers;
+select * from customers_view;
+
+--- 3.2.10. Alter View
+Alter view customers_view as select id, name, salary from customers;
+select * from customers_view;
+
+--- 3.2.11. Drop a View
+Drop view customers_view;
+
+--- 3.3.1. Order By - Clauses
+Select * from customers ORDER BY id asc;
+Select * from customers ORDER BY id desc;
+
+--- 3.3.2. Group By - Clauses
+Select name, sum(salary) from employee Group BY name;
+
+--- 3.3.3. Having - Clauses
+select max(salary) from employee group by age having max(salary) > 30000;
+
+--- 3.3.4. Limit - Clauses
+select * from employee order by id; 
+select * from employee order by id limit 3;
+
+--- 3.3.5. Offset - Clauses
+select * from employee order by id limit 3;
+select * from employee order by id limit 3 offset 0;
+select * from employee order by id limit 2 offset 3; 
+
+--- 3.3.6. Union - Clauses
+select * from customers order by id limit 3
+ union select * from employee order by id limit 3;
+
+--- 3.3.7. With - Clauses
+with t1 as (select * from customers where age>25), 
+   t2 as (select * from employee where age>25) 
+   (select * from t1 union select * from t2);
+
+--- 3.3.8. Distinct Operator
+select distinct id, name, age, salary from customers; 
+select distinct name, age, address from customers;
+
+--- 4.3.1. Create Database
+create database my_db
+
+--- 4.3.2. Create Table
+** Customer
+CREATE TABLE customer (
+    CustomerKey INT,
+    Gender STRING,
+    Name STRING,
+    City STRING,
+    State_Code STRING,
+    State STRING,
+    Zip_Code INT,
+    Country STRING,
+    Continent STRING,
+    Birthday TIMESTAMP
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+** Product
+CREATE TABLE product (
+    ProductKey INT,
+    Product_Name STRING,
+    Brand STRING,
+    Color STRING,
+    Unit_Cost_USD FLOAT,
+    Unit_Price_USD FLOAT,
+    SubcategoryKey INT,
+    Subcategory STRING,
+    CategoryKey INT,
+    Category STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+** Sale
+CREATE TABLE sale (
+    Order_Number INT,
+    Line_Item INT,
+    Order_Date TIMESTAMP,
+    Delivery_Date TIMESTAMP,
+    CustomerKey INT,
+    StoreKey INT,
+    ProductKey INT,
+    Quantity INT,
+    Currency_Code STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+** Store
+CREATE TABLE store (
+    StoreKey INT,
+    Country STRING,
+    State STRING,
+    Square_Meters INT,
+    Open_Date TIMESTAMP
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+
+--- 4.3.3. Load data into table
+** customer
+LOAD DATA INPATH '/user/cloudera/Customers.csv' 
+OVERWRITE INTO TABLE customer;
+
+** product
+LOAD DATA INPATH '/user/cloudera/Products.csv' 
+OVERWRITE INTO TABLE product;
+
+** sale
+LOAD DATA INPATH '/user/cloudera/Sales.csv' 
+OVERWRITE INTO TABLE sale;
+
+** store
+LOAD DATA INPATH '/user/cloudera/Stores.csv' 
+OVERWRITE INTO TABLE store;
+
+
+--- 4.3.4. Công ty bán những loại sản phẩm nào và khách hàng ở đâu?
+SELECT
+    p.Category, 
+    p.Subcategory, 
+    c.City, 
+    c.State, 
+    c.Country,
+    COUNT(s.Order_Number) AS Total_Orders,
+    SUM(s.Quantity) AS Total_Quantity
+FROM product p
+JOIN sale s ON p.ProductKey = s.ProductKey
+JOIN customer c ON s.CustomerKey = c.CustomerKey
+GROUP BY p.Category, p.Subcategory, c.City, c.State, c.Country
+ORDER BY Total_Orders DESC;
+
+
+--- 4.3.5. Lấy thông tin về vị trí của cửa hàng và diện tích của các cửa hàng
+SELECT
+    Country,
+    State,
+    SUM(Square_Meters) AS Total_Square_Meters
+FROM Store
+GROUP BY Country, State;
+
+
+--- 4.3.6. Phân tích giá sản phẩm giúp hiểu được phạm vi giá và xác định xu hướng trên các danh mục khác nhau
+SELECT 
+    Category, 
+    AVG(Unit_Price_USD) AS Average_Price
+FROM product
+GROUP BY Category
+ORDER BY Average_Price DESC;
+
+
+--- 4.3.7. Danh sách các khách hàng đã mua ít nhất 2 sản phẩm của cùng một thương hiệu, sắp xếp theo số lượng sản phẩm mua
+SELECT c.CustomerKey, c.Name, p.Brand, COUNT(*) AS Product_Count
+FROM sale s
+JOIN product p ON s.ProductKey = p.ProductKey
+JOIN customer c ON s.CustomerKey = c.CustomerKey
+GROUP BY c.CustomerKey, c.Name, p.Brand
+HAVING COUNT(*) >= 2
+ORDER BY Product_Count DESC;
+
+
+--- 4.3.8. Xem tỉ lệ giữa khách hàng nam và nữ đặt hàng trong mỗi quốc gia
+SELECT c.Country,
+    c.Gender,
+    COUNT(*) AS Gender_Count,
+    COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY c.Country) AS Gender_Ratio
+FROM sale s
+JOIN customer c ON s.CustomerKey = c.CustomerKey
+GROUP BY c.Country, c.Gender;
+
+
+--- 4.3.9. Tính tổng khối lượng đặt hàng theo tháng và năm
+SELECT 
+    YEAR(Order_Date) AS Order_Year,
+    MONTH(Order_Date) AS Order_Month,
+    SUM(Quantity) AS Total_Quantity
+FROM sale
+GROUP BY Order_Year, Order_Month
+ORDER BY Order_Year, Order_Month;
+
+
+--- 4.3.10. Liệt kê sản phẩm bán chạy nhất trong mỗi danh mục và hiển thị số lượng bán được từ cao đến thấp
+WITH SalesSummary AS (
+    SELECT p.Category, p.Product_Name, SUM(s.Quantity) AS Total_Sold
+    FROM sale s
+    JOIN product p ON s.ProductKey = p.ProductKey
+    GROUP BY p.Category, p.Product_Name
+)
+SELECT Category, Product_Name, Total_Sold
+FROM (
+    SELECT Category, Product_Name, Total_Sold,
+           ROW_NUMBER() OVER (PARTITION BY Category ORDER BY Total_Sold DESC) AS rank
+    FROM SalesSummary
+) ranked
+WHERE rank = 1
+ORDER BY Total_Sold DESC;
+
+
+--- 4.3.11. Xem doanh số bán hàng theo từng danh mục sản phẩm trong năm 2019 với danh mục có doanh số bán hàng đáng kể (tổng số lượng sản phẩm bán ra lớn hơn 100)
+SELECT
+    YEAR(s.Order_Date) AS OrderYear,
+    p.Category AS ProductCategory,
+    SUM(s.Quantity) AS TotalQuantitySold,
+    AVG(p.Unit_Price_USD) AS AvgUnitPrice,
+    SUM(s.Quantity * p.Unit_Price_USD) AS TotalSalesRevenue
+FROM sale s
+JOIN product p ON s.ProductKey = p.ProductKey
+WHERE s.Order_Date BETWEEN '2019-01-01' AND '2019-12-31'
+GROUP BY YEAR(s.Order_Date),p.Category
+HAVING SUM(s.Quantity) > 3000
+ORDER BY TotalSalesRevenue DESC;
+
+
+--- 4.3.12. Tổng diện tích của các cửa hàng theo quốc gia và tính số lượng cửa hàng trong mỗi quốc gia, sau đó sắp xếp kết quả theo tổng diện tích giảm dần
+WITH store_summary AS (
+    SELECT 
+        Country, 
+        SUM(Square_Meters) AS Total_Square_Meters,
+        COUNT(*) AS Store_Count
+    FROM store
+    GROUP BY Country
+)
+SELECT 
+    Country,
+    Total_Square_Meters,
+    Store_Count
+FROM store_summary
+ORDER BY Total_Square_Meters DESC;
+
+
+--- 4.3.13. Thông tin về doanh số của các cửa hàng ở các nước cho một ngày cụ thể (ví dụ 1/6/2016)
+SELECT 
+    st.Country, 
+    SUM(s.Quantity * p.Unit_Price_USD) AS Total_Sales
+FROM sale s
+JOIN store st ON s.StoreKey = st.StoreKey
+JOIN product p ON s.ProductKey = p.ProductKey
+WHERE s.Order_Date >= '2016-06-01' AND s.Order_Date < '2016-06-02'
+GROUP BY st.Country
+ORDER BY Total_Sales DESC;
+
+
+--- 4.3.14. Xem danh sách các nhóm tuổi phổ biến của khách hàng mua hàng, sắp xếp theo số lượng mua hàng giảm dần
+WITH CustomerAgeGroup AS (
+    SELECT c.CustomerKey, YEAR(c.Birthday) AS BirthYear, YEAR(s.Order_Date) AS OrderYear
+    FROM sale s
+    JOIN customer c ON s.CustomerKey = c.CustomerKey
+)
+SELECT OrderYear - BirthYear AS Age,
+    CASE 
+        WHEN OrderYear - BirthYear BETWEEN 18 AND 25 THEN '18-25'
+        WHEN OrderYear - BirthYear BETWEEN 26 AND 35 THEN '26-35'
+        WHEN OrderYear - BirthYear BETWEEN 36 AND 45 THEN '36-45'
+        ELSE 'Over 45'
+    END AS AgeGroup,
+    COUNT(*) AS Customer_Count
+FROM CustomerAgeGroup
+GROUP BY AgeGroup, Age
+ORDER BY Customer_Count DESC;
+
+
+--- 4.3.15. Công ty bán những loại sản phẩm nào và thương hiệu nào phổ biến nhất?
+** Phân phối Product theo Category
+SELECT 
+    Category, 
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Category
+ORDER BY Product_Count DESC;
+
+** Phân phối Product theo Brand
+SELECT 
+    Brand, 
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Brand
+ORDER BY Product_Count DESC;
+
+** Tổng hợp
+SELECT 
+    'Category' AS Type,
+    Category AS Name,
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Category
+UNION ALL
+SELECT 
+    'Brand' AS Type,
+    Brand AS Name,
+    COUNT(*) AS Product_Count
+FROM product
+GROUP BY Brand
+ORDER BY Type, Product_Count DESC;
+
